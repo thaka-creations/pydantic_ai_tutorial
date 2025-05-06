@@ -12,3 +12,23 @@ returns JSON bytes, all_messages_json(),
 JSON bytes, new_messages_json().
 
 See example `messages_and_chat_history/run_result_messages.py`
+
+## Usimg Messages as Input for Further Agent Runs
+The primary use of message histories in PydanticAI is to maintain context across multiple agent runs.
+To use existing messages in a run, pass them to the **message_history** parameter of **Agent.run**,
+**Agent.run_sync** or **Agent.run_stream**
+If message_history is set and not empty, a new system prompt is not generated - we assume the existing
+message history includes a system prompt.
+
+```python
+from pydantic_ai import Agent
+
+agent = Agent("openai:gpt-4o", system_prompt="Be a helpful assistant")
+result1 = agent.run_sync("Tell me a joke")
+print(result1.output)
+
+result2 = agent.run_sync("Explain?", message_history=result1.new_messages())
+print(result2.output)
+
+print(result2.all_messages())
+```
