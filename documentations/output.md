@@ -38,3 +38,23 @@ when the validation requires IO and is asynchronous. PydanticAI provides a way t
 via the **agent.output_validator** decorator
 See example See example in `output/sql_gen.py`
 
+## Streamed Results
+There are two main challenges with streamed results:
+1. Validating structured responses before they're complete, this is achieved by "partial validation"
+which was recently added to Pydantic
+2. When receiving a response, we don't know if it's the final response without starting to stream it and 
+peeking at the content. PydanticAI streams just enough of the response to sniff out if it's a tool call or an
+output, then streams the whole thing and calls tools, or returns the stream as a StreamedRunResult.
+
+### Streaming Text
+See example `output/streamed_hello_world.py`
+
+### Streaming Structured Output
+Not all types are supported with partial validation in pydantic, generally for model-like structures it's currently
+best to use **TypeDict**
+
+
+
+
+
+
