@@ -10,3 +10,5 @@ have the following methods.
 returns JSON bytes, all_messages_json(),
 - new_messages(): returns only the messages from the current run. There's also a variant that returns 
 JSON bytes, new_messages_json().
+
+See example `messages_and_chat_history/run_result_messages.py`
