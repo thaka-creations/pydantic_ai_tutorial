@@ -53,3 +53,13 @@ site/
 
 # Local development settings
 local_settings.py
+
+# exclude files
+*.pdf
+*.txt
+*.json
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.doc

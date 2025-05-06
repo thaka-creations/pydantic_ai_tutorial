@@ -27,4 +27,4 @@ See example in `function_tools/dice_game_tool_kwarg.py`
 ## Function Tool Output
 Tools can return anything that pydantic can serialize to JSON, as well as audio, video, image or
 document content depending on the types of multi-modal input the model supports:
-
+See example in `function_tools/function_tool_output.py`.

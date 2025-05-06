@@ -47,6 +47,3 @@ print(result.output)
 
 result = agent.run_sync("What is the company name in the logo?")
 print(result.output)
-
-result = agent.run_sync("What is the main content of the document?")
-print(result.output)
