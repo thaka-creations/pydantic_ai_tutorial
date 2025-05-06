@@ -52,9 +52,38 @@ See example `output/streamed_hello_world.py`
 ### Streaming Structured Output
 Not all types are supported with partial validation in pydantic, generally for model-like structures it's currently
 best to use **TypeDict**
+See example `output/streamed_user_profile.py`
+
+If you want fine-grained control of validation, particularly catching validation errors, you can use the following pattern:
+
+```python
+from datetime import date
+
+from pydantic import ValidationError
+from typing_extensions import TypedDict
+
+from pydantic_ai import Agent
 
 
+class UserProfile(TypedDict, total=False):
+    name: str
+    dob: date
+    bio: str
 
 
+agent = Agent('openai:gpt-4o', output_type=UserProfile)
 
 
+async def main():
+    user_input = 'My name is Ben, I was born on January 28th 1990, I like the chain the dog and the pyramid.'
+    async with agent.run_stream(user_input) as result:
+        async for message, last in result.stream_structured(debounce_by=0.01):  
+            try:
+                profile = await result.validate_structured_output(  
+                    message,
+                    allow_partial=not last,
+                )
+            except ValidationError:
+                continue
+            print(profile)
+```
