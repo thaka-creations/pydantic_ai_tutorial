@@ -57,3 +57,26 @@ A prepare method can be registered via the prepare kwarg to any of the tool regi
 The prepare method, should be of type **ToolPrepareFunc**, a function which takes **RunContext** and a pre-built
 **ToolDefinition**, and should either return that **ToolDefinition** with or without modifying it, return a new
 **ToolDefinition**, or return None to indicate this tools should not be registered for that step.
+
+## Tool Execution and Retries
+When a tool is executed, its arguments (provided by the LLM) are first validated against the function's signature
+using Pydantic. If validation fails (e.g due to incorrect types or missing required arguments), a
+**ValidationError** is raised, and the framework automatically generates a **RetryPromptPart** containing the
+validation details. This prompt is sent back to the LLM, informing it of the error and allowing it to correct the
+parameters and retry the tool call.
+Beyond automatic validation errors, the tool's own internal logic can also explicitly request a retry by raising
+the **ModelRetry** exception. This is useful for situations where the parameters were technically valid, but an 
+issue occurred during execution (like a transient network error, or the tool determining the initial attempt need modification)
+
+```
+from pydantic_ai import ModelRetry
+
+def my_flaky_tool(query: str) -> str:
+    if query == 'bad':
+        raise ModelRetry("The query 'bad' is not allowed. Please provide a different query")
+    return 'Success!'
+```
+
+Raising ModelRetry also generates a **RetryPromptPart** containing the exception message,
+which is sent back to the LLM to guide its next attempt. Both **ValidationError** and **ModelRetry** respect the
+**retries** setting configured on the Tool or Agent
