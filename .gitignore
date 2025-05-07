@@ -63,3 +63,7 @@ local_settings.py
 *.xls
 *.docx
 *.doc
+
+# Milvus
+milvus_demo.db
+*.db.lock
