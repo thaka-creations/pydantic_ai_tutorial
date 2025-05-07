@@ -49,16 +49,13 @@ retrieval_agent = Agent[str, str](
     instrument=True,
     output_type=str,
     system_prompt=(
-        """You are an expert at retrieving and analyzing questions from a vector database.
-        Your task is to find semantically similar questions to the input query and analyze their patterns.
-        
-        Provide a concise analysis that includes:
-        - The most relevant similar questions found
-        - Key patterns and commonalities
-        - Notable differences in structure or content
-        - Any mathematical or special formatting patterns
-        
-        Format the response as a clear, structured analysis."""
+        """
+        You are an intelligent assistant helping to refine or relay user queries based on retrieved information. You will be given a list of relevant questions retrieved from a vector database.
+        Your task is:
+        - To decide whether the retrieved questions need to be rephrased, or modified for clarity, context, or improved relevance.
+        - Or, if they are already appropriate, to return them as-is without unnecessary changes.
+        - Respond with your best judgment—only modify if it adds value. If no modifications are necessary, just return the original questions unchanged.
+        """
     ),
 )
 
@@ -194,6 +191,6 @@ if __name__ == "__main__":
         asyncio.run(retrieve_questions("Give seven difference"))
     else:
         print(
-            "Usage: python question_extractor.py extract|build",
+            "Usage: python question_extractor.py extract|retrieve",
             file=sys.stderr,
         )
