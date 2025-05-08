@@ -8,14 +8,20 @@ import logfire
 from openai import AsyncOpenAI
 from pydantic_ai import Agent, BinaryContent, RunContext
 from pymilvus import MilvusClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
-from . import model
+from . import model, schema
 
 logfire.configure(send_to_logfire="if-token-present")
 openai = AsyncOpenAI()
 milvus_client = MilvusClient(uri="./milvus_demo.db")
 COLLECTION_NAME = "my_rag_collection"  # Constant name in uppercase
+
+# Create SQLAlchemy engine and sessionx
+engine = create_engine("postgresql://postgres:@localhost:5432/exam_db")
+Session = sessionmaker(bind=engine)
 
 
 @dataclass
@@ -80,8 +86,14 @@ async def retrieve(
     Returns:
         model.RetrievedQuestions: Retrieved questions
     """
-    res = await search_milvus(search_query, context.deps.openai, COLLECTION_NAME)
-    return res
+    session = Session()
+    try:
+        res = await search_milvus(
+            search_query, context.deps.openai, COLLECTION_NAME, session
+        )
+        return res
+    finally:
+        session.close()
 
 
 def get_pdf_bytes(file_name: str) -> bytes:
@@ -126,7 +138,7 @@ async def create_embedding(question: str, openai: AsyncOpenAI) -> list[float]:
 
 
 async def load_data_into_milvus(
-    questions: list[model.ExamQuestion], openai: AsyncOpenAI
+    questions: list[model.ExamQuestion], openai: AsyncOpenAI, postgres_session
 ) -> None:
     """Load question embeddings into Milvus vector database.
 
@@ -145,12 +157,25 @@ async def load_data_into_milvus(
     )
 
     data = []
-    for i, question in enumerate(tqdm(questions, desc="Creating embeddings")):
+    for question in tqdm(questions, desc="Creating embeddings"):
         question_parts = question.parts
         for part in question_parts:
+            # save to postgres
+            db_question = schema.ExamQuestion(
+                exam_name="KCSE",
+                subject="CRE",
+                year="2024",
+                question_number=question.question_number,
+                part_label=part.part_label,
+                content=part.content,
+                marks=part.marks,
+            )
+            postgres_session.add(db_question)
+            postgres_session.flush()
+
             data.append(
                 {
-                    "id": i,
+                    "id": db_question.id,
                     "vector": await create_embedding(part.content, openai),
                     "question_number": question.question_number,
                     "question_part": part.part_label,
@@ -159,6 +184,7 @@ async def load_data_into_milvus(
                 }
             )
 
+    postgres_session.commit()
     milvus_client.insert(collection_name=COLLECTION_NAME, data=data)
 
 
@@ -166,6 +192,7 @@ async def search_milvus(
     question: str,
     openai: AsyncOpenAI,
     collection_name: str,
+    postgres_session,
 ) -> list[model.RetrievedQuestion]:
     """Search for similar questions in Milvus database.
 
@@ -184,9 +211,22 @@ async def search_milvus(
         search_params={"metric_type": "IP", "params": {}},
         output_fields=["question_number", "question_part", "question", "marks"],
     )
-
-    print("search_res", search_res)
-    return [model.RetrievedQuestion(**hit["entity"]) for hit in search_res[0]]
+    ids = [hit["id"] for hit in search_res[0]]
+    db_questions = (
+        postgres_session.query(schema.ExamQuestion)
+        .filter(schema.ExamQuestion.id.in_(ids))
+        .all()
+    )
+    return [
+        model.RetrievedQuestion(
+            id=db_question.id,
+            question_number=db_question.question_number,
+            question_part=db_question.part_label,
+            question=db_question.content,
+            marks=db_question.marks,
+        )
+        for db_question in db_questions
+    ]
 
 
 async def extract_questions(path: str) -> None:
@@ -204,7 +244,11 @@ async def extract_questions(path: str) -> None:
     )
 
     if isinstance(result.output, model.Questions):
-        await load_data_into_milvus(result.output.questions, openai)
+        session = Session()
+        try:
+            await load_data_into_milvus(result.output.questions, openai, session)
+        finally:
+            session.close()
 
 
 async def retrieve_questions(query: str) -> model.RetrievedQuestions:
@@ -221,12 +265,39 @@ async def retrieve_questions(query: str) -> model.RetrievedQuestions:
     return result.output
 
 
+async def add_tables_to_exam_db():
+    """Add tables to the exam database."""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    session.execute(
+        text(
+            """
+            CREATE TABLE exam_questions (
+                id SERIAL PRIMARY KEY,
+                exam_name VARCHAR(255),
+                subject VARCHAR(255),
+                year VARCHAR(255),
+                question_number VARCHAR(255),
+                part_label VARCHAR(255),
+                content TEXT,
+                marks INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.commit()
+    session.close()
+
+
 if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else None
     if action == "extract":
         asyncio.run(extract_questions("cre.pdf"))
     elif action == "retrieve":
-        asyncio.run(retrieve_questions("Give seven differences"))
+        asyncio.run(retrieve_questions("Outline six attributes of God"))
+    elif action == "add_tables_to_exam_db":
+        asyncio.run(add_tables_to_exam_db())
     else:
         print(
             "Usage: python question_extractor.py extract|retrieve",

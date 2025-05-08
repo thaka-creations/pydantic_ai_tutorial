@@ -33,6 +33,7 @@ class Questions(BaseModel):
 class RetrievedQuestion(BaseModel):
     """Represents a question retrieved from the database."""
 
+    id: int = Field(description="The id of the question")
     question_number: str = Field(description="E.g., '1', '17'")
     question_part: Optional[str] = Field(description="E.g., '(a)', '(b)'", default=None)
     question: str = Field(description="The question text, including any math equations")
