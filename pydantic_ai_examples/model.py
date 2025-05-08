@@ -28,3 +28,22 @@ class Questions(BaseModel):
     """Top-level model for any exam paper (CRE or Math)."""
 
     questions: List[ExamQuestion] = Field(description="All questions")
+
+
+class RetrievedQuestion(BaseModel):
+    """Represents a question retrieved from the database."""
+
+    question_number: str = Field(description="E.g., '1', '17'")
+    question_part: Optional[str] = Field(description="E.g., '(a)', '(b)'", default=None)
+    question: str = Field(description="The question text, including any math equations")
+    marks: Optional[int] = Field(
+        description="Marks allocated (if specified)", default=None
+    )
+
+
+class RetrievedQuestions(BaseModel):
+    """Represents a list of questions retrieved from the database."""
+
+    questions: List[RetrievedQuestion] = Field(
+        description="List of retrieved questions"
+    )
